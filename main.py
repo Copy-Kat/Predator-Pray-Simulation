@@ -2,9 +2,7 @@ from __future__ import annotations
 from enum import Enum, auto
 #import os
 from typing import Union
-
-from pygame.gfxdraw import hline, vline
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import pygame as pg
 from pygame.math import Vector2
 from vi import Agent, Simulation, Window
