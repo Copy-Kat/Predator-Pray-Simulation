@@ -1,15 +1,29 @@
+from __future__ import annotations
 from enum import Enum, auto
 #import os
 from typing import Union
 
-# use numpy for another rng genrator
-# doc said movement use a decoupled rng
-# use random.random may affect the rng of movement
-# haven't tested the theory but add here just in case
-#import numpy as np
 from pygame.gfxdraw import hline, vline
-
+from dataclasses import dataclass, field
 import pygame as pg
 from pygame.math import Vector2
-from vi import Agent, Simulation
-from vi.config import Config, dataclass, deserialize
+from vi import Agent, Simulation, Window
+from vi.config import Config
+from serde.de import deserialize
+from lib import Pray, Pred
+
+WIDTH: int = 750
+HEIGHT: int = 750
+
+WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
+
+@dataclass
+@deserialize
+class Custom(Config):
+    window: Window = WINDOW
+
+custom = Custom()
+
+test = Simulation(custom)
+
+test.batch_spawn_agents(100, Pray, ["images/green.png"]).batch_spawn_agents(10, Pred, ["images/red.png"]).run()
