@@ -13,7 +13,7 @@ WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 @deserialize
 class PPConfig(Config):
     window: Window = WINDOW
-    pray_base_chance_reproduce: float = 0.001 # THIS IS DANGEROUS, CHANGE AT YOUR OWN DISCRETION
+    pray_base_chance_reproduce: float = 0.002 # THIS IS DANGEROUS, CHANGE AT YOUR OWN DISCRETION
     pred_base_chance_dying: float = 0.005 # TOO LOW AND WOLF DIE TOO FAST
     d_pred_clock: float = 0.0001
 
@@ -21,6 +21,7 @@ class Pray(Agent):
     config: PPConfig
 
     def update(self):
+        self.save_data("kind", "Pray")
         p = random.uniform(0, 1)
 
         if p < self.config.pray_base_chance_reproduce:
@@ -42,6 +43,8 @@ class Pred(Agent):
     d_clock: float = 1
 
     def update(self):
+
+        self.save_data("kind", "Pred")
 
         p = random.uniform(0, 1)
 

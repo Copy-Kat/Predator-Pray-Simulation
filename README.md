@@ -2,6 +2,11 @@
 
 A simple predator and pray simulation built for the Project Collective Inteligence course using the [violet](https://github.com/m-rots/violet) engine and Pygame as the backend
 
+## Files:
+- main.py: the driver code for the simulation, only include code to start the simulation. Cannot change the parameters in main yet as it would cause circular imports. May change later by using TOML files.
+- lib.py: conatin all the logic for the agents and the config of the simulation
+- stats.py: do statistical analysis on the data (TODO: add graphs)
+
 ## Rules:
 2 agent types: Predator and Pray (Will be more complex later)
 
