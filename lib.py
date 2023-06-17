@@ -1,7 +1,33 @@
 from dataclasses import dataclass
-from vi import Agent
+from serde.de import deserialize
+from vi import Agent, Window, Config
+import random
+
+
+WIDTH: int = 750
+HEIGHT: int = 750
+
+WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
+
+@dataclass
+@deserialize
+class PPConfig(Config):
+    window: Window = WINDOW
+    pray_base_chance_reproduce: float = 0.001 # THIS IS DANGEROUS, CHANGE AT YOUR OWN DISCRETION
+    pred_base_chance_dying: float = 0.005 # TOO LOW AND WOLF DIE TOO FAST
+    d_pred_clock: float = 0.0001
 
 class Pray(Agent):
+    config: PPConfig
+
+    def update(self):
+        p = random.uniform(0, 1)
+
+        if p < self.config.pray_base_chance_reproduce:
+            self.reproduce()
+
+            self.move.rotate_ip(90)
+
     
     def change_position(self):
 
@@ -10,10 +36,21 @@ class Pray(Agent):
         self.pos += self.move
 
 class Pred(Agent):
+    config: PPConfig
     lock_on: bool = False
     target: Pray
+    d_clock: float = 1
 
     def update(self):
+
+        p = random.uniform(0, 1)
+
+        if p > self.config.pred_base_chance_dying + self.d_clock:
+            self.kill()
+            return
+        
+        self.d_clock -= self.config.d_pred_clock
+        
         if not self.lock_on:
             target = self.in_proximity_performance().filter_kind(Pray).first()
             if target is not None:
