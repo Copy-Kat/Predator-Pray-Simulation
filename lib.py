@@ -6,80 +6,129 @@ import random
 
 WIDTH: int = 750
 HEIGHT: int = 750
+COLLIDE_DISTANCE: int = 8 # distance between 2 agents to count as collided
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 
 @dataclass
 @deserialize
-class PPConfig(Config):
-    window: Window = WINDOW
-    pray_base_chance_reproduce: float = 0.002 # THIS IS DANGEROUS, CHANGE AT YOUR OWN DISCRETION
-    pred_base_chance_dying: float = 0.005 # TOO LOW AND WOLF DIE TOO FAST
-    d_pred_clock: float = 0.0001
+class QOLConfig(Config):
+    visualise_chunks: bool = False
+    print_fps: bool = False
 
+@dataclass
+@deserialize
+class PPConfig(QOLConfig):
+    window: Window = WINDOW
+    change_dir_chance: float = 0.25 # can change if needed
+    radius: int = 30 # maybe improvement here?
+
+    pray_base_chance_reproduce: float = 0.25 # need polish
+    pray_reproduce_pulse_timer: int = 100 # need polish
+
+    pred_base_chance_dying: float = 0.1 # need polish
+    pred_death_pulse_timer: int = 100 # need polish
+
+# Pray class
 class Pray(Agent):
     config: PPConfig
+    reproduce_timer: int = 100 # time between each reproduce attempt
 
     def update(self):
-        self.save_data("kind", "Pray")
-        p = random.uniform(0, 1)
+        self.save_data("kind", "Pray") # save data for later
+        
+        if self.reproduce_timer == 0:
 
-        if p < self.config.pray_base_chance_reproduce:
-            self.reproduce()
+            p = random.random()
 
-            self.move.rotate_ip(90)
+            # reproduce
+            if self.config.pray_base_chance_reproduce > p:
+                self.reproduce()
+
+                self.move.rotate_ip(90)
+            
+            # reset timer regardless
+            self.reproduce_timer = self.config.pray_reproduce_pulse_timer
+            return
+            
+        self.reproduce_timer -= 1 
 
     
-    def change_position(self):
+    def change_position(self): # basic random move
 
         self.there_is_no_escape()
+
+        prng = self.shared.prng_move
+
+        should_change_dir = prng.random()
+
+        if self.config.change_dir_chance > should_change_dir:
+                self.move.rotate(prng.uniform(-10, 10))
 
         self.pos += self.move
 
+# Pred class
 class Pred(Agent):
     config: PPConfig
-    lock_on: bool = False
     target: Pray
-    d_clock: float = 1
+    death_timer: int
+    hunger: int = 100
+    dying: bool = False
 
     def update(self):
 
-        self.save_data("kind", "Pred")
-
-        p = random.uniform(0, 1)
-
-        if p > self.config.pred_base_chance_dying + self.d_clock:
-            self.kill()
-            return
+        self.save_data("kind", "Pred") # save data
         
-        self.d_clock -= self.config.d_pred_clock
+        # if no more hunger then enter dying state
+        if self.hunger == 0 and not self.dying: 
+            self.death_timer = self.config.pred_death_pulse_timer
+            self.dying = True
         
-        if not self.lock_on:
-            target = self.in_proximity_performance().filter_kind(Pray).first()
-            if target is not None:
-                self.target = target
-                self.lock_on = True
+        # count down the timer till death door
+        if self.dying:
+            if self.death_timer == 0:
+
+                p = random.random()
+
+                if p < self.config.pred_base_chance_dying:
+                    self.kill()
+                return
+
+            self.death_timer -= 1
+
+        self.hunger -= 1
+        
 
     def change_position(self):
 
-        #print(self.config)
-
         self.there_is_no_escape()
-
+        
+        # aquire target
         targets = list(self.in_proximity_accuracy().filter_kind(Pray))
 
-        if targets:
+        if targets: # if target found
         
-            targets = sorted(targets, key = lambda x : x[1])
+            targets = sorted(targets, key = lambda x : x[1]) # sort targets
 
-            self.target = targets[0][0] 
+            self.target = targets[0][0] # get closest target
         
-            if (self.target.pos - self.pos).length() < 8:
-                self.target.kill()
-                self.lock_on = False
+            if (self.target.pos - self.pos).length() < COLLIDE_DISTANCE:
+                self.target.kill() # kill if collided
+                self.hunger = 100
+                if self.dying:
+                    self.dying = False
                 self.pos += self.move
                 return
 
-            self.move = (self.target.pos - self.pos).normalize()
+            self.move = (self.target.pos - self.pos)
 
-        self.pos += self.move
+        else: # random walk
+        
+            prng = self.shared.prng_move
+
+            should_change_dir = prng.random()
+
+            if self.config.change_dir_chance > should_change_dir:
+                    self.move.rotate(prng.uniform(-10, 10))
+        
+        self.pos += self.move.normalize() * 1.5 # make pred faster than prey

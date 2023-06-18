@@ -16,7 +16,7 @@ custom = PPConfig()
 
 test = Simulation(custom)
 
-df = test.batch_spawn_agents(100, Pray, ["images/green.png"]).batch_spawn_agents(20, Pred, ["images/red.png"]).run().snapshots
+df = test.batch_spawn_agents(100, Pray, ["images/green.png"]).batch_spawn_agents(30, Pred, ["images/red.png"]).run().snapshots
 
 file_name = "data.csv"
 
