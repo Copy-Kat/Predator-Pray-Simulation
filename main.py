@@ -8,13 +8,13 @@ from pygame.math import Vector2
 from vi import Agent, Simulation, Window
 from vi.config import Config
 
-from lib import Pray, Pred, PPConfig
+from lib import Pray, Pred, PPConfig, PPSim
 
 
 
 custom = PPConfig()
 
-test = Simulation(custom)
+test = PPSim(custom)
 
 df = test.batch_spawn_agents(100, Pray, ["images/green.png"]).batch_spawn_agents(30, Pred, ["images/red.png"]).run().snapshots
 

@@ -1,12 +1,15 @@
 from dataclasses import dataclass
 from serde.de import deserialize
-from vi import Agent, Window, Config
+from vi import Agent, Simulation, Window, Config
 import random
+from typing import Optional
+import pygame as pg
 
 
 WIDTH: int = 750
 HEIGHT: int = 750
 COLLIDE_DISTANCE: int = 8 # distance between 2 agents to count as collided
+BG_COLOR: tuple[int, int, int] = (150, 150, 150) # chance bg_color if needed
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 
@@ -132,3 +135,24 @@ class Pred(Agent):
                     self.move.rotate(prng.uniform(-10, 10))
         
         self.pos += self.move.normalize() * 1.5 # make pred faster than prey
+
+class PPSim(Simulation):
+    def __init__(self, config: Optional[Config] = None):
+        super().__init__(config)
+
+        pg.display.init()
+        pg.display.set_caption("Violet")
+
+        size = self.config.window.as_tuple()
+        self._screen = pg.display.set_mode(size)
+
+        # Initialise background
+        self._background = pg.surface.Surface(size).convert()
+        self._background.fill(BG_COLOR)
+
+        # Show background immediately (before spawning agents)
+        self._screen.blit(self._background, (0, 0))
+        pg.display.flip()
+
+        # Initialise the clock. Used to cap FPS.
+        self._clock = pg.time.Clock()
