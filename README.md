@@ -46,11 +46,11 @@ A simple predator and pray simulation built for the Project Collective Inteligen
 
 ## TODO: first 3 are manditory, rest are nice to have
 - [x] Implement the basic bare-bone simulation (Basically done, just need polishing)
-- [] Build plots for population changes (Will be complete after understanding Polars)
-- [] Energy system for Pred, could be modeled as hunger?
-- [] Study diff between with and without hunger
-- [] Add grass
-- [] Add flocking
-- [] Add sexual reproduction (no more cell division)
-- [] Add aging
-- [] Make more complex environment
+- [ ] Build plots for population changes (Will be complete after understanding Polars)
+- [ ] Energy system for Pred, could be modeled as hunger?
+- [ ] Study diff between with and without hunger
+- [ ] Add grass
+- [ ] Add flocking
+- [ ] Add sexual reproduction (no more cell division)
+- [ ] Add aging
+- [ ] Make more complex environment
