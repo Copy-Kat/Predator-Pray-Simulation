@@ -14,6 +14,24 @@ Install the dependencies:
 pip install polars pyarrow pandas plotly
 ```
 
+Have a look at lib.py to use a custom config for the simulation
+Run the simulation:
+```bash
+python main.py
+```
+
+Analyse data:
+Open a jupyter notebook client in the current directory:
+```bash
+jupyter
+```
+Or
+```bash
+jupyter lab
+```
+
+Run all the cells in the notebook to see all the graphs and data analysis
+
 ## Files:
 - main.py: the driver code for the simulation, only include code to start the simulation. Cannot change the parameters in main yet as it would cause circular imports. May change later by using TOML files.
 - lib.py: conatin all the logic for the agents and the config of the simulation.
