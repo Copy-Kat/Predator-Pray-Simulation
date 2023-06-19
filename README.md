@@ -3,7 +3,36 @@
 A simple predator and pray simulation built for the Project Collective Inteligence course using the [violet](https://github.com/m-rots/violet) engine and Pygame as the backend. The graphs and data analysis is done with Polars and Plotly
 
 ## Getting started:
-- Clone the repository: 
+Clone the repository: 
+```bash
+git clone https://github.com/Copy-Kat/Predator-Pray-Simulation.git
+```
+Or clone using Github Desktop
+
+Install the dependencies:
+```python
+pip install polars pyarrow pandas plotly
+```
+
+Have a look at lib.py to use a custom config for the simulation
+
+Run the simulation:
+```bash
+python main.py
+```
+
+Analyse data:
+
+Open a jupyter notebook client in the current directory:
+```bash
+jupyter
+```
+Or
+```bash
+jupyter lab
+```
+
+Run all the cells in the notebook to see all the graphs and data analysis
 
 ## Files:
 - main.py: the driver code for the simulation, only include code to start the simulation. Cannot change the parameters in main yet as it would cause circular imports. May change later by using TOML files.
