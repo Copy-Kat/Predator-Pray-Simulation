@@ -1,16 +1,6 @@
-from __future__ import annotations
-from enum import Enum, auto
 import os
-from typing import Union
-from dataclasses import dataclass
-import pygame as pg
-from pygame.math import Vector2
-from vi import Agent, Simulation, Window
-from vi.config import Config
 
 from lib import Pray, Pred, PPConfig, PPSim
-
-
 
 custom = PPConfig()
 

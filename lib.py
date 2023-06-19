@@ -16,7 +16,7 @@ WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 @dataclass
 @deserialize
 class QOLConfig(Config):
-    visualise_chunks: bool = False
+    visualise_chunks: bool = True
     print_fps: bool = False
 
 @dataclass
