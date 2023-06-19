@@ -1,15 +1,18 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pygame.color import Color
+from pygame.math import Vector2
 from serde.de import deserialize
 from vi import Agent, Simulation, Window, Config
 import random
 from typing import Optional
 import pygame as pg
-
+from pygame.gfxdraw import hline, vline
 
 WIDTH: int = 750
 HEIGHT: int = 750
 COLLIDE_DISTANCE: int = 8 # distance between 2 agents to count as collided
 BG_COLOR: tuple[int, int, int] = (50, 50, 50) # chance bg_color if needed
+grass_color: Color =  Color(55, 235, 52, 50)
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 
@@ -24,13 +27,29 @@ class QOLConfig(Config):
 class PPConfig(QOLConfig):
     window: Window = WINDOW
     change_dir_chance: float = 0.25 # can change if needed
-    radius: int = 50 # maybe improvement here?
+    radius: int = 100 # maybe improvement here?
+    
+    pray_count: int = 100
+    pred_count: int = 0
+    
+    grass_count: int = 2
+    grass_location: list[pg.Vector2] = field(default_factory=lambda: [Vector2(100, 100), Vector2(300, 300)])
 
-    pray_base_chance_reproduce: float = 0.25 # need polish
+    pray_base_chance_reproduce: float = 0.5 # need polish
     pray_reproduce_pulse_timer: int = 100 # need polish
 
-    pred_base_chance_dying: float = 0.1 # need polish
-    pred_death_pulse_timer: int = 100 # need polish
+    pred_base_chance_dying: float = 0.05 # need polish
+    pred_death_pulse_timer: int = 200 # need polish
+
+
+class Grass(Agent):
+    config: PPConfig
+    def on_spawn(self):
+        self.config.grass_count -= 1
+        self.pos = self.config.grass_location[self.config.grass_count]
+        self.freeze_movement()
+    def update(self):
+        self.save_data("kind", "grass")
 
 # Pray class
 class Pray(Agent):
@@ -137,6 +156,8 @@ class Pred(Agent):
         self.pos += self.move.normalize() * 1.5 # make pred faster than prey
 
 class PPSim(Simulation):
+    config: PPConfig
+
     def __init__(self, config: Optional[Config] = None):
         super().__init__(config)
 
@@ -156,3 +177,60 @@ class PPSim(Simulation):
 
         # Initialise the clock. Used to cap FPS.
         self._clock = pg.time.Clock()
+
+    def before_update(self):
+        super().before_update()
+
+        for event in pg.event.get():
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_q:
+                    self._running = False
+                if event.key == pg.KEYUP:
+                    self.config.fps_limit = 120
+
+        #print(self.config.agent_count)
+
+    def after_update(self):
+        # Draw verything to the screen
+
+        surface = pg.Surface((self.config.window.width, self.config.window.height), pg.SRCALPHA)
+        
+        target_rect = pg.Rect(0, 0, self.config.window.width, self.config.window.height)
+
+        for center in self.config.grass_location:
+            
+            pg.draw.circle(surface, grass_color, center, self.config.radius)
+        
+        self._screen.blit(surface, target_rect)
+
+        self._all.draw(self._screen)
+
+        if self.config.visualise_chunks:
+            self.__visualise_chunks()
+
+        # Update the screen with the new image
+        pg.display.flip()
+
+        self._clock.tick(self.config.fps_limit)
+
+        current_fps = self._clock.get_fps()
+        if current_fps > 0:
+            self._metrics.fps._push(current_fps)
+
+            if self.config.print_fps:
+                print(f"FPS: {current_fps:.1f}")
+
+    def __visualise_chunks(self):
+        """Visualise the proximity chunks by drawing their borders."""
+
+        colour = pg.Color(255, 255, 255, 122)
+        chunk_size = self._proximity.chunk_size
+
+        width, height = self.config.window.as_tuple()
+
+        for x in range(chunk_size, width, chunk_size):
+            vline(self._screen, x, 0, height, colour)
+
+        for y in range(chunk_size, height, chunk_size):
+            hline(self._screen, 0, width, y, colour)
+
