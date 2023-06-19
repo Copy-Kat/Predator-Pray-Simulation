@@ -56,6 +56,11 @@ A simple predator and pray simulation built for the Project Collective Inteligen
 | Pred dying chance | 0.1 |
 | Pray death door timer | 100 |
 
+## Expected results:
+A dynamic shift in population for both predator and pray overtime. Predators would start with an abundance of food which lead to them thriving and exhausting the food source (pray pops reduced). With less food to go around, predators would die out one by one (pred pops reduced), leaving room for pray to reproduce (pray pops increased). With the left over pred, now with an abundance of food again, could begin to thrive and restart the cycle.
+
+## Current problems:
+- Pray cannot die while predators could. Pray could reproduce but predators could not. This lead to a quick 1 cycle of the simulation rather than a contineous cycle. Not sure if this is intended as asexsual reproduction is an idea but not manditory.
 
 ## TODO: first 3 are manditory, rest are nice to have
 - [x] Implement the basic bare-bone simulation (Basically done, just need polishing)
@@ -71,4 +76,4 @@ A simple predator and pray simulation built for the Project Collective Inteligen
 ## Points of improvement: (Nice to have, not manditory)
 - [ ] Somehow make predator to have 2 proximities: hunt mode and chase mode (hunt is larger than chase)
 - [ ] Following last point, make variable speed for both modes (hunt is slower than chase)
-- [ ] Make pray aware of the pred and run away
+- [ ] Make pray aware of the pred and run away

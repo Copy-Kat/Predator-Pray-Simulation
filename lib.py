@@ -9,7 +9,7 @@ import pygame as pg
 WIDTH: int = 750
 HEIGHT: int = 750
 COLLIDE_DISTANCE: int = 8 # distance between 2 agents to count as collided
-BG_COLOR: tuple[int, int, int] = (150, 150, 150) # chance bg_color if needed
+BG_COLOR: tuple[int, int, int] = (50, 50, 50) # chance bg_color if needed
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 
@@ -24,7 +24,7 @@ class QOLConfig(Config):
 class PPConfig(QOLConfig):
     window: Window = WINDOW
     change_dir_chance: float = 0.25 # can change if needed
-    radius: int = 30 # maybe improvement here?
+    radius: int = 50 # maybe improvement here?
 
     pray_base_chance_reproduce: float = 0.25 # need polish
     pray_reproduce_pulse_timer: int = 100 # need polish
