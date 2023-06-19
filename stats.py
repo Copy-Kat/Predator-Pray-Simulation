@@ -1,5 +1,6 @@
 import polars as pl
 import os
+import plotly.express as px
 
 df = pl.read_csv("data.csv")
 
@@ -17,4 +18,4 @@ if not os.path.exists(file_name):
 
 clean.write_csv(file_name, separator=",")
 
-print(clean)
+px.line(clean.to_pandas(), x="frame", y=["Pred count", "Pray count"])
