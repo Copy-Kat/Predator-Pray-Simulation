@@ -15,12 +15,14 @@ pip install polars pyarrow pandas plotly
 ```
 
 Have a look at lib.py to use a custom config for the simulation
+
 Run the simulation:
 ```bash
 python main.py
 ```
 
 Analyse data:
+
 Open a jupyter notebook client in the current directory:
 ```bash
 jupyter
