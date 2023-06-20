@@ -1,22 +1,23 @@
+import random
 from dataclasses import dataclass, field
+from typing import Optional
+
+import pygame as pg
 from pygame.color import Color
+from pygame.gfxdraw import hline, vline
 from pygame.math import Vector2
 from serde.de import deserialize
-from vi import Agent, Simulation, Window, Config
-import random
-from typing import Optional
-import pygame as pg
-from pygame.gfxdraw import hline, vline
+from vi import Agent, Config, Simulation, Window
 
 pg.init()
 
 WIDTH: int = 750
 HEIGHT: int = 750
-COLLIDE_DISTANCE: int = 8 # distance between 2 agents to count as collided
-BG_COLOR: tuple[int, int, int] = (0, 0, 0) # chance bg_color if needed
+COLLIDE_DISTANCE: int = 8  # distance between 2 agents to count as collided
+BG_COLOR: tuple[int, int, int] = (0, 0, 0)  # chance bg_color if needed
 TEXT_COLOR: tuple[int, int, int] = (255, 255, 255)
 
-grass_color: Color =  Color(120, 135, 100, 90)
+grass_color: Color = Color(120, 135, 100, 90)
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 
@@ -31,24 +32,27 @@ class QOLConfig(Config):
     print_fps: bool = True
     duration: int = 400
 
+
 @dataclass
 @deserialize
 class PPConfig(QOLConfig):
     window: Window = WINDOW
-    change_dir_chance: float = 0.25 # can change if needed
-    radius: int = 100 # maybe improvement here?
-    
+    change_dir_chance: float = 0.25  # can change if needed
+    radius: int = 100  # maybe improvement here?
+
     pray_count: int = 100
     pred_count: int = 20
-    
+
     grass_count: int = 2
-    grass_location: list[pg.Vector2] = field(default_factory=lambda: [Vector2(100, 100), Vector2(650, 650)])
+    grass_location: list[pg.Vector2] = field(
+        default_factory=lambda: [Vector2(100, 100), Vector2(650, 650)]
+    )
 
-    pray_base_chance_reproduce: float = 0.1 # need polish
-    pray_reproduce_pulse_timer: int = 100 # need polish
+    pray_base_chance_reproduce: float = 0.1  # need polish
+    pray_reproduce_pulse_timer: int = 100  # need polish
 
-    pred_base_chance_dying: float = 0.05 # need polish
-    pred_death_pulse_timer: int = 200 # need polish
+    pred_base_chance_dying: float = 0.05  # need polish
+    pred_death_pulse_timer: int = 200  # need polish
 
 
 class Grass(Agent):
@@ -62,6 +66,7 @@ class Grass(Agent):
         self.id = self.config.grass_count
         self.pos = self.config.grass_location[self.config.grass_count]
         self.freeze_movement()
+
     def update(self):
         self.save_data("kind", "grass")
         if self.color[1] > 135:
@@ -69,18 +74,19 @@ class Grass(Agent):
                 self.color[1] -= 1
                 self.counter = 0
             self.counter += 1
-        #print(self.id, " : ", self.in_proximity_performance().filter_kind(Pray).count())
+        # print(self.id, " : ", self.in_proximity_performance().filter_kind(Pray).count())
+
 
 # Pray class
 class Pray(Agent):
     config: PPConfig
-    reproduce_timer: int = 100 # time between each reproduce attempt
+    reproduce_timer: int = 100  # time between each reproduce attempt
+    hunger: float = 100
 
     def update(self):
-        self.save_data("kind", "Pray") # save data for later
-        
-        if self.reproduce_timer == 0:
+        self.save_data("kind", "Pray")  # save data for later
 
+        if self.reproduce_timer == 0:
             p = random.random()
 
             # reproduce
@@ -88,16 +94,14 @@ class Pray(Agent):
                 self.reproduce()
 
                 self.move.rotate_ip(90)
-            
+
             # reset timer regardless
             self.reproduce_timer = self.config.pray_reproduce_pulse_timer
             return
-            
-        self.reproduce_timer -= 1 
 
-    
-    def change_position(self): # basic random move
+        self.reproduce_timer -= 1
 
+    def change_position(self):  # basic random move
         self.there_is_no_escape()
 
         prng = self.shared.prng_move
@@ -105,9 +109,10 @@ class Pray(Agent):
         should_change_dir = prng.random()
 
         if self.config.change_dir_chance > should_change_dir:
-                self.move.rotate(prng.uniform(-10, 10))
+            self.move.rotate(prng.uniform(-10, 10))
 
         self.pos += self.move
+
 
 # Pred class
 class Pred(Agent):
@@ -118,18 +123,16 @@ class Pred(Agent):
     dying: bool = False
 
     def update(self):
+        self.save_data("kind", "Pred")  # save data
 
-        self.save_data("kind", "Pred") # save data
-        
         # if no more hunger then enter dying state
-        if self.hunger == 0 and not self.dying: 
+        if self.hunger == 0 and not self.dying:
             self.death_timer = self.config.pred_death_pulse_timer
             self.dying = True
-        
+
         # count down the timer till death door
         if self.dying:
             if self.death_timer == 0:
-
                 p = random.random()
 
                 if p < self.config.pred_base_chance_dying:
@@ -139,41 +142,38 @@ class Pred(Agent):
             self.death_timer -= 1
 
         self.hunger -= 1
-        
 
     def change_position(self):
-
         self.there_is_no_escape()
-        
+
         # aquire target
         targets = list(self.in_proximity_accuracy().filter_kind(Pray))
 
-        if targets: # if target found
-        
-            targets = sorted(targets, key = lambda x : x[1]) # sort targets
+        if targets:  # if target found
+            targets = sorted(targets, key=lambda x: x[1])  # sort targets
 
-            self.target = targets[0][0] # get closest target
-        
+            self.target = targets[0][0]  # get closest target
+
             if (self.target.pos - self.pos).length() < COLLIDE_DISTANCE:
-                self.target.kill() # kill if collided
+                self.target.kill()  # kill if collided
                 self.hunger = 100
                 if self.dying:
                     self.dying = False
                 self.pos += self.move
                 return
 
-            self.move = (self.target.pos - self.pos)
+            self.move = self.target.pos - self.pos
 
-        else: # random walk
-        
+        else:  # random walk
             prng = self.shared.prng_move
 
             should_change_dir = prng.random()
 
             if self.config.change_dir_chance > should_change_dir:
-                    self.move.rotate(prng.uniform(-10, 10))
-        
-        self.pos += self.move.normalize() * 1.5 # make pred faster than prey
+                self.move.rotate(prng.uniform(-10, 10))
+
+        self.pos += self.move.normalize() * 1.5  # make pred faster than prey
+
 
 class PPSim(Simulation):
     config: PPConfig
@@ -210,15 +210,15 @@ class PPSim(Simulation):
                 if event.key == pg.K_DOWN:
                     self.config.fps_limit -= 10
 
-        #print(self.config.fps_limit)
+        # print(self.config.fps_limit)
 
     def after_update(self):
         # Draw verything to the screen
 
         surface = pg.Surface((self.config.window.width, self.config.window.height), pg.SRCALPHA)
-        
+
         target_rect = pg.Rect(0, 0, self.config.window.width, self.config.window.height)
-        
+
         pray_counter = 0
         pred_counter = 0
 
@@ -269,4 +269,3 @@ class PPSim(Simulation):
 
         for y in range(chunk_size, height, chunk_size):
             hline(self._screen, 0, width, y, colour)
-
