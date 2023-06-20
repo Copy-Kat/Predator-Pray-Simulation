@@ -96,10 +96,10 @@ A dynamic shift in population for both predator and pray overtime. Predators wou
 
 ## TODO: first 3 are manditory, rest are nice to have
 - [x] Implement the basic bare-bone simulation (Basically done, just need polishing)
-- [ ] Build plots for population changes (Will be complete after understanding Polars)
+- [ ] Build plots for population changes (Kinda done?)
 - [x] Energy system for Pred, could be modeled as hunger? (Need polishing on parameters)
 - [ ] Study diff between with and without hunger
-- [ ] Add grass
+- [ ] Add grass (Actually kinda working)
 - [ ] Add flocking
 - [ ] Add sexual reproduction (no more cell division)
 - [ ] Add aging

@@ -16,11 +16,11 @@ COLLIDE_DISTANCE: int = 8 # distance between 2 agents to count as collided
 BG_COLOR: tuple[int, int, int] = (0, 0, 0) # chance bg_color if needed
 TEXT_COLOR: tuple[int, int, int] = (255, 255, 255)
 
-grass_color: Color =  Color(55, 235, 52, 50)
+grass_color: Color =  Color(120, 135, 100, 90)
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 
-FONT_SIZE: int = 15
+FONT_SIZE: int = 20
 FONT = pg.font.SysFont("Arial", FONT_SIZE)
 
 
@@ -29,6 +29,7 @@ FONT = pg.font.SysFont("Arial", FONT_SIZE)
 class QOLConfig(Config):
     visualise_chunks: bool = True
     print_fps: bool = True
+    duration: int = 400
 
 @dataclass
 @deserialize
@@ -41,7 +42,7 @@ class PPConfig(QOLConfig):
     pred_count: int = 20
     
     grass_count: int = 2
-    grass_location: list[pg.Vector2] = field(default_factory=lambda: [Vector2(100, 100), Vector2(300, 300)])
+    grass_location: list[pg.Vector2] = field(default_factory=lambda: [Vector2(100, 100), Vector2(650, 650)])
 
     pray_base_chance_reproduce: float = 0.1 # need polish
     pray_reproduce_pulse_timer: int = 100 # need polish
@@ -52,12 +53,23 @@ class PPConfig(QOLConfig):
 
 class Grass(Agent):
     config: PPConfig
+    id: int
+    color: list[int] = [120, 235, 100, 120]
+    counter: int = 0
+
     def on_spawn(self):
         self.config.grass_count -= 1
+        self.id = self.config.grass_count
         self.pos = self.config.grass_location[self.config.grass_count]
         self.freeze_movement()
     def update(self):
         self.save_data("kind", "grass")
+        if self.color[1] > 135:
+            if self.counter < 10:
+                self.color[1] -= 1
+                self.counter = 0
+            self.counter += 1
+        #print(self.id, " : ", self.in_proximity_performance().filter_kind(Pray).count())
 
 # Pray class
 class Pray(Agent):
@@ -206,15 +218,7 @@ class PPSim(Simulation):
         surface = pg.Surface((self.config.window.width, self.config.window.height), pg.SRCALPHA)
         
         target_rect = pg.Rect(0, 0, self.config.window.width, self.config.window.height)
-
-        for center in self.config.grass_location:
-            
-            pg.draw.circle(surface, grass_color, center, self.config.radius)
         
-        self._screen.blit(surface, target_rect)
-
-        self._all.draw(self._screen)
-
         pray_counter = 0
         pred_counter = 0
 
@@ -223,6 +227,12 @@ class PPSim(Simulation):
                 pray_counter += 1
             elif isinstance(sprite, Pred):
                 pred_counter += 1
+            elif isinstance(sprite, Grass):
+                pg.draw.circle(surface, sprite.color, sprite.pos, self.config.radius)
+
+        self._screen.blit(surface, target_rect)
+
+        self._all.draw(self._screen)
 
         pray = FONT.render("Pray count: " + str(pray_counter), True, TEXT_COLOR)
         pred = FONT.render("Pred count: " + str(pred_counter), True, TEXT_COLOR)
@@ -239,7 +249,7 @@ class PPSim(Simulation):
             self._metrics.fps._push(current_fps)
 
             if self.config.print_fps:
-                fps = FONT.render("Fps: " + str(current_fps), True, TEXT_COLOR)
+                fps = FONT.render("Fps: " + str(round(current_fps, 1)), True, TEXT_COLOR)
                 self._screen.blit(fps, (0, 0))
 
         pg.display.flip()
