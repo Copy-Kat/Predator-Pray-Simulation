@@ -8,19 +8,27 @@ from typing import Optional
 import pygame as pg
 from pygame.gfxdraw import hline, vline
 
+pg.init()
+
 WIDTH: int = 750
 HEIGHT: int = 750
 COLLIDE_DISTANCE: int = 8 # distance between 2 agents to count as collided
-BG_COLOR: tuple[int, int, int] = (50, 50, 50) # chance bg_color if needed
+BG_COLOR: tuple[int, int, int] = (0, 0, 0) # chance bg_color if needed
+TEXT_COLOR: tuple[int, int, int] = (255, 255, 255)
+
 grass_color: Color =  Color(55, 235, 52, 50)
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
+
+FONT_SIZE: int = 15
+FONT = pg.font.SysFont("Arial", FONT_SIZE)
+
 
 @dataclass
 @deserialize
 class QOLConfig(Config):
     visualise_chunks: bool = True
-    print_fps: bool = False
+    print_fps: bool = True
 
 @dataclass
 @deserialize
@@ -30,12 +38,12 @@ class PPConfig(QOLConfig):
     radius: int = 100 # maybe improvement here?
     
     pray_count: int = 100
-    pred_count: int = 0
+    pred_count: int = 20
     
     grass_count: int = 2
     grass_location: list[pg.Vector2] = field(default_factory=lambda: [Vector2(100, 100), Vector2(300, 300)])
 
-    pray_base_chance_reproduce: float = 0.5 # need polish
+    pray_base_chance_reproduce: float = 0.1 # need polish
     pray_reproduce_pulse_timer: int = 100 # need polish
 
     pred_base_chance_dying: float = 0.05 # need polish
@@ -185,10 +193,12 @@ class PPSim(Simulation):
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_q:
                     self._running = False
-                if event.key == pg.KEYUP:
-                    self.config.fps_limit = 120
+                if event.key == pg.K_UP:
+                    self.config.fps_limit += 10
+                if event.key == pg.K_DOWN:
+                    self.config.fps_limit -= 10
 
-        #print(self.config.agent_count)
+        #print(self.config.fps_limit)
 
     def after_update(self):
         # Draw verything to the screen
@@ -205,20 +215,36 @@ class PPSim(Simulation):
 
         self._all.draw(self._screen)
 
+        pray_counter = 0
+        pred_counter = 0
+
+        for sprite in self._all.sprites():
+            if isinstance(sprite, Pray):
+                pray_counter += 1
+            elif isinstance(sprite, Pred):
+                pred_counter += 1
+
+        pray = FONT.render("Pray count: " + str(pray_counter), True, TEXT_COLOR)
+        pred = FONT.render("Pred count: " + str(pred_counter), True, TEXT_COLOR)
+
+        self._screen.blit(pray, (0, self.config.window.height - 2 * FONT_SIZE))
+
+        self._screen.blit(pred, (0, self.config.window.height - FONT_SIZE))
+
         if self.config.visualise_chunks:
             self.__visualise_chunks()
-
-        # Update the screen with the new image
-        pg.display.flip()
-
-        self._clock.tick(self.config.fps_limit)
 
         current_fps = self._clock.get_fps()
         if current_fps > 0:
             self._metrics.fps._push(current_fps)
 
             if self.config.print_fps:
-                print(f"FPS: {current_fps:.1f}")
+                fps = FONT.render("Fps: " + str(current_fps), True, TEXT_COLOR)
+                self._screen.blit(fps, (0, 0))
+
+        pg.display.flip()
+
+        self._clock.tick(self.config.fps_limit)
 
     def __visualise_chunks(self):
         """Visualise the proximity chunks by drawing their borders."""
