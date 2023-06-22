@@ -54,7 +54,7 @@ class PPConfig(QOLConfig):
     grass_natural_regen_rate: int = 10
     grass_damaged_timer: int = 100
 
-    pray_base_chance_reproduce: float = 0.1  # need polish
+    pray_base_chance_reproduce: float = 0.25  # need polish
     pray_reproduce_pulse_timer: int = 100  # need polish
     pray_grass_consumption: int = 1
 
@@ -253,7 +253,7 @@ class Pred(Agent):
             if self.config.change_dir_chance > should_change_dir:
                 self.move.rotate(prng.uniform(-10, 10))
 
-        self.pos += self.move.normalize() * 2  # make pred faster than prey
+        self.pos += self.move.normalize() * 1.5   # make pred faster than prey
 
 
 class PPSim(Simulation):
