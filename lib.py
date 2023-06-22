@@ -9,6 +9,8 @@ from pygame.math import Vector2
 from serde.de import deserialize
 from vi import Agent, Config, Simulation, Window
 
+from enum import Enum, auto
+
 pg.init()
 
 WIDTH: int = 750
@@ -16,8 +18,6 @@ HEIGHT: int = 750
 COLLIDE_DISTANCE: int = 8  # distance between 2 agents to count as collided
 BG_COLOR: tuple[int, int, int] = (0, 0, 0)  # chance bg_color if needed
 TEXT_COLOR: tuple[int, int, int] = (255, 255, 255)
-
-grass_color: Color = Color(120, 135, 100, 90)
 
 WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 
@@ -30,7 +30,7 @@ FONT = pg.font.SysFont("Arial", FONT_SIZE)
 class QOLConfig(Config):
     visualise_chunks: bool = True
     print_fps: bool = True
-    duration: int = 400
+    duration: int = 0
 
 
 @dataclass
@@ -41,15 +41,19 @@ class PPConfig(QOLConfig):
     radius: int = 100  # maybe improvement here?
 
     pray_count: int = 100
-    pred_count: int = 20
+    pred_count: int = 0
 
     grass_count: int = 2
     grass_location: list[pg.Vector2] = field(
         default_factory=lambda: [Vector2(100, 100), Vector2(650, 650)]
     )
+    grass_max_cap: int = 1500
+    grass_natural_regen_rate: int = 10
+    grass_damaged_timer: int = 50
 
     pray_base_chance_reproduce: float = 0.1  # need polish
     pray_reproduce_pulse_timer: int = 100  # need polish
+    pray_grass_consumption: int = 1
 
     pred_base_chance_dying: float = 0.05  # need polish
     pred_death_pulse_timer: int = 200  # need polish
@@ -58,42 +62,82 @@ class PPConfig(QOLConfig):
 class Grass(Agent):
     config: PPConfig
     id: int
-    color: list[int] = [120, 235, 100, 120]
+    color: int = 235
     counter: int = 0
+    current_cap: int
+    max_cap: int
+    damaged: bool = False
 
     def on_spawn(self):
         self.config.grass_count -= 1
         self.id = self.config.grass_count
         self.pos = self.config.grass_location[self.config.grass_count]
+        self.max_cap = self.config.grass_max_cap
+        self.current_cap = self.config.grass_max_cap
         self.freeze_movement()
 
     def update(self):
         self.save_data("kind", "grass")
-        if self.color[1] > 135:
-            if self.counter < 10:
-                self.color[1] -= 1
-                self.counter = 0
-            self.counter += 1
+        
+        if not self.damaged:
+            pray_in_range = list(self.in_proximity_accuracy().without_distance().filter_kind(Pray))
+            current_cap = self.current_cap - len(pray_in_range) * self.config.pray_grass_consumption + self.config.grass_natural_regen_rate
+            if current_cap > 0:
+                self.current_cap = min(current_cap, self.max_cap)
+                self.color = 135 + int(( self.current_cap / self.max_cap ) * 100)
+            else:
+                for pray in pray_in_range:
+                    pray.kill()
+                self.damaged = True
+                self.regen_timer = self.config.grass_damaged_timer
+
+            return
+
+        if self.regen_timer == 0:
+            self.damaged = False
+
+        self.regen_timer -= 1
+
         # print(self.id, " : ", self.in_proximity_performance().filter_kind(Pray).count())
 
+class PrayStates(Enum):
+    SEARCHING = auto()
+    STILL = auto()
+    RUNAWAY = auto()
 
 # Pray class
 class Pray(Agent):
     config: PPConfig
     reproduce_timer: int = 100  # time between each reproduce attempt
     hunger: float = 100
+    on_grass: bool =  False
+    state: PrayStates = PrayStates.SEARCHING
+    still_walk_timer: int
 
     def update(self):
         self.save_data("kind", "Pray")  # save data for later
 
+        in_range = list(self.in_proximity_accuracy())
+
+        if [pred for pred in in_range if isinstance(pred[0], Pred)]:
+            self.state = PrayStates.RUNAWAY
+            return
+
+        if self.state == PrayStates.SEARCHING:
+
+            if [grass for grass in in_range if isinstance(grass[0], Grass)]:
+
+                self.state = PrayStates.STILL
+
         if self.reproduce_timer == 0:
-            p = random.random()
+            if self.hunger > 50:
+                p = random.random()
 
-            # reproduce
-            if self.config.pray_base_chance_reproduce > p:
-                self.reproduce()
+                # reproduce
+                if self.config.pray_base_chance_reproduce > p:
+                    self.reproduce()
 
-                self.move.rotate_ip(90)
+                    self.move.rotate_ip(90)
 
             # reset timer regardless
             self.reproduce_timer = self.config.pray_reproduce_pulse_timer
@@ -102,6 +146,10 @@ class Pray(Agent):
         self.reproduce_timer -= 1
 
     def change_position(self):  # basic random move
+
+        if self.on_grass:
+           pass 
+
         self.there_is_no_escape()
 
         prng = self.shared.prng_move
@@ -112,7 +160,6 @@ class Pray(Agent):
             self.move.rotate(prng.uniform(-10, 10))
 
         self.pos += self.move
-
 
 # Pred class
 class Pred(Agent):
@@ -228,7 +275,7 @@ class PPSim(Simulation):
             elif isinstance(sprite, Pred):
                 pred_counter += 1
             elif isinstance(sprite, Grass):
-                pg.draw.circle(surface, sprite.color, sprite.pos, self.config.radius)
+                pg.draw.circle(surface, (120, sprite.color, 100, 120), sprite.pos, self.config.radius)
 
         self._screen.blit(surface, target_rect)
 
