@@ -13,6 +13,8 @@ from enum import Enum, auto
 
 pg.init()
 
+ENERGY: bool = True
+
 WIDTH: int = 750
 HEIGHT: int = 750
 COLLIDE_DISTANCE: int = 8  # distance between 2 agents to count as collided
@@ -24,6 +26,7 @@ WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 FONT_SIZE: int = 20
 FONT = pg.font.SysFont("Arial", FONT_SIZE)
 
+HUNGER_CHANGE = 1 if ENERGY else 0
 
 @dataclass
 @deserialize
@@ -41,21 +44,21 @@ class PPConfig(QOLConfig):
     radius: int = 100  # maybe improvement here?
 
     pray_count: int = 100
-    pred_count: int = 0
+    pred_count: int = 10
 
-    grass_count: int = 2
+    grass_count: int = 3
     grass_location: list[pg.Vector2] = field(
-        default_factory=lambda: [Vector2(100, 100), Vector2(650, 650)]
+        default_factory=lambda: [Vector2(100, 100), Vector2(650, 650), Vector2(100, 650)]
     )
     grass_max_cap: int = 1500
     grass_natural_regen_rate: int = 10
-    grass_damaged_timer: int = 50
+    grass_damaged_timer: int = 100
 
-    pray_base_chance_reproduce: float = 0.1  # need polish
+    pray_base_chance_reproduce: float = 0.1 # need polish
     pray_reproduce_pulse_timer: int = 100  # need polish
     pray_grass_consumption: int = 1
 
-    pred_base_chance_dying: float = 0.05  # need polish
+    pred_base_chance_dying: float = 0.001  # need polish
     pred_death_pulse_timer: int = 200  # need polish
 
 
@@ -86,8 +89,8 @@ class Grass(Agent):
                 self.current_cap = min(current_cap, self.max_cap)
                 self.color = 135 + int(( self.current_cap / self.max_cap ) * 100)
             else:
-                for pray in pray_in_range:
-                    pray.kill()
+                #for pray in pray_in_range:
+                #pray.kill()
                 self.damaged = True
                 self.regen_timer = self.config.grass_damaged_timer
 
@@ -110,24 +113,39 @@ class Pray(Agent):
     config: PPConfig
     reproduce_timer: int = 100  # time between each reproduce attempt
     hunger: float = 100
-    on_grass: bool =  False
     state: PrayStates = PrayStates.SEARCHING
     still_walk_timer: int
+    pred_pos: Vector2
 
     def update(self):
         self.save_data("kind", "Pray")  # save data for later
 
         in_range = list(self.in_proximity_accuracy())
 
-        if [pred for pred in in_range if isinstance(pred[0], Pred)]:
+        pred_in_range = [pred for pred in in_range if isinstance(pred[0], Pred) and pred[1] < 70]
+
+        if pred_in_range:
             self.state = PrayStates.RUNAWAY
+            self.pred_pos = pred_in_range[0][0].pos
             return
 
-        if self.state == PrayStates.SEARCHING:
+        elif self.state == PrayStates.SEARCHING:
 
-            if [grass for grass in in_range if isinstance(grass[0], Grass)]:
+            grass_in_range = [grass for grass in in_range if isinstance(grass[0], Grass) and not grass[0].damaged]
+
+            if grass_in_range:
 
                 self.state = PrayStates.STILL
+                self.move = (grass_in_range[0][0].pos - self.pos).normalize()
+                self.still_walk_timer = random.randint(10, 30)
+        else:
+            grass_in_range = [grass for grass in in_range if isinstance(grass[0], Grass)]
+            
+            if grass_in_range:
+                if grass_in_range[0][0].damaged:
+
+                    self.state = PrayStates.SEARCHING
+                    self.move.rotate_ip(180)
 
         if self.reproduce_timer == 0:
             if self.hunger > 50:
@@ -135,31 +153,42 @@ class Pray(Agent):
 
                 # reproduce
                 if self.config.pray_base_chance_reproduce > p:
+                    prng = self.shared.prng_move
                     self.reproduce()
 
-                    self.move.rotate_ip(90)
+                    self.move.rotate_ip(prng.uniform(-10, 10))
 
             # reset timer regardless
             self.reproduce_timer = self.config.pray_reproduce_pulse_timer
             return
 
         self.reproduce_timer -= 1
+        self.hunger -= HUNGER_CHANGE
 
     def change_position(self):  # basic random move
 
-        if self.on_grass:
-           pass 
+        changed = self.there_is_no_escape()
 
-        self.there_is_no_escape()
+        if changed:
+            self.state = PrayStates.SEARCHING
 
-        prng = self.shared.prng_move
+        if self.state == PrayStates.RUNAWAY:
+            self.move = (self.pos - self.pred_pos)
 
-        should_change_dir = prng.random()
+        elif self.state == PrayStates.STILL:
+            if self.still_walk_timer == 0:
+                return
+            self.still_walk_timer -= 1
+        else:
+        
+            prng = self.shared.prng_move
 
-        if self.config.change_dir_chance > should_change_dir:
-            self.move.rotate(prng.uniform(-10, 10))
+            should_change_dir = prng.random()
 
-        self.pos += self.move
+            if self.config.change_dir_chance > should_change_dir:
+                self.move.rotate(prng.uniform(-10, 10))
+
+        self.pos += self.move.normalize()
 
 # Pred class
 class Pred(Agent):
@@ -188,7 +217,7 @@ class Pred(Agent):
 
             self.death_timer -= 1
 
-        self.hunger -= 1
+        self.hunger -= HUNGER_CHANGE
 
     def change_position(self):
         self.there_is_no_escape()
@@ -219,7 +248,7 @@ class Pred(Agent):
             if self.config.change_dir_chance > should_change_dir:
                 self.move.rotate(prng.uniform(-10, 10))
 
-        self.pos += self.move.normalize() * 1.5  # make pred faster than prey
+        self.pos += self.move.normalize() * 2  # make pred faster than prey
 
 
 class PPSim(Simulation):
