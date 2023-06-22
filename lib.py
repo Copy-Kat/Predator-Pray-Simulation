@@ -1,5 +1,6 @@
 import random
 from dataclasses import dataclass, field
+from enum import Enum, auto
 from typing import Optional
 
 import pygame as pg
@@ -8,8 +9,6 @@ from pygame.gfxdraw import hline, vline
 from pygame.math import Vector2
 from serde.de import deserialize
 from vi import Agent, Config, Simulation, Window
-
-from enum import Enum, auto
 
 pg.init()
 
@@ -27,6 +26,7 @@ FONT_SIZE: int = 20
 FONT = pg.font.SysFont("Arial", FONT_SIZE)
 
 HUNGER_CHANGE = 1 if ENERGY else 0
+
 
 @dataclass
 @deserialize
@@ -54,7 +54,7 @@ class PPConfig(QOLConfig):
     grass_natural_regen_rate: int = 10
     grass_damaged_timer: int = 100
 
-    pray_base_chance_reproduce: float = 0.1 # need polish
+    pray_base_chance_reproduce: float = 0.1  # need polish
     pray_reproduce_pulse_timer: int = 100  # need polish
     pray_grass_consumption: int = 1
 
@@ -81,16 +81,20 @@ class Grass(Agent):
 
     def update(self):
         self.save_data("kind", "grass")
-        
+
         if not self.damaged:
             pray_in_range = list(self.in_proximity_accuracy().without_distance().filter_kind(Pray))
-            current_cap = self.current_cap - len(pray_in_range) * self.config.pray_grass_consumption + self.config.grass_natural_regen_rate
+            current_cap = (
+                self.current_cap
+                - len(pray_in_range) * self.config.pray_grass_consumption
+                + self.config.grass_natural_regen_rate
+            )
             if current_cap > 0:
                 self.current_cap = min(current_cap, self.max_cap)
-                self.color = 135 + int(( self.current_cap / self.max_cap ) * 100)
+                self.color = 135 + int((self.current_cap / self.max_cap) * 100)
             else:
-                #for pray in pray_in_range:
-                #pray.kill()
+                # for pray in pray_in_range:
+                # pray.kill()
                 self.damaged = True
                 self.regen_timer = self.config.grass_damaged_timer
 
@@ -103,10 +107,12 @@ class Grass(Agent):
 
         # print(self.id, " : ", self.in_proximity_performance().filter_kind(Pray).count())
 
+
 class PrayStates(Enum):
     SEARCHING = auto()
     STILL = auto()
     RUNAWAY = auto()
+
 
 # Pray class
 class Pray(Agent):
@@ -130,20 +136,19 @@ class Pray(Agent):
             return
 
         elif self.state == PrayStates.SEARCHING:
-
-            grass_in_range = [grass for grass in in_range if isinstance(grass[0], Grass) and not grass[0].damaged]
+            grass_in_range = [
+                grass for grass in in_range if isinstance(grass[0], Grass) and not grass[0].damaged
+            ]
 
             if grass_in_range:
-
                 self.state = PrayStates.STILL
                 self.move = (grass_in_range[0][0].pos - self.pos).normalize()
                 self.still_walk_timer = random.randint(10, 30)
         else:
             grass_in_range = [grass for grass in in_range if isinstance(grass[0], Grass)]
-            
+
             if grass_in_range:
                 if grass_in_range[0][0].damaged:
-
                     self.state = PrayStates.SEARCHING
                     self.move.rotate_ip(180)
 
@@ -166,21 +171,19 @@ class Pray(Agent):
         self.hunger -= HUNGER_CHANGE
 
     def change_position(self):  # basic random move
-
         changed = self.there_is_no_escape()
 
         if changed:
             self.state = PrayStates.SEARCHING
 
         if self.state == PrayStates.RUNAWAY:
-            self.move = (self.pos - self.pred_pos)
+            self.move = self.pos - self.pred_pos
 
         elif self.state == PrayStates.STILL:
             if self.still_walk_timer == 0:
                 return
             self.still_walk_timer -= 1
         else:
-        
             prng = self.shared.prng_move
 
             should_change_dir = prng.random()
@@ -189,6 +192,7 @@ class Pray(Agent):
                 self.move.rotate(prng.uniform(-10, 10))
 
         self.pos += self.move.normalize()
+
 
 # Pred class
 class Pred(Agent):
@@ -304,7 +308,9 @@ class PPSim(Simulation):
             elif isinstance(sprite, Pred):
                 pred_counter += 1
             elif isinstance(sprite, Grass):
-                pg.draw.circle(surface, (120, sprite.color, 100, 120), sprite.pos, self.config.radius)
+                pg.draw.circle(
+                    surface, (120, sprite.color, 100, 120), sprite.pos, self.config.radius
+                )
 
         self._screen.blit(surface, target_rect)
 

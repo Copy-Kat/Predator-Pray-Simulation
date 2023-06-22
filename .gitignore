@@ -4,3 +4,5 @@ main1.py
 data.csv
 Population.csv
 .ipynb_checkpoints
+*.ipynb
+stats.ipynb

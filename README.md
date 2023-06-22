@@ -40,38 +40,50 @@ Run all the cells in the notebook to see all the graphs and data analysis
 - stats.py / stats.ipynb: do statistical analysis on the data. Python file for cleaning and preping data, Notebook for visualize graphs.
 
 ## Rules:
-2 agent types: Predator and Pray (Will be more complex later)
+3 agent types: Predator and Pray and Grass (Will be more complex later)
 
 ### Predators:
-- Start by wandering around randomly.
-- For each tick, look around the proximity for a pray and lock on to it.
-- Once locked in, it will only move towards the pray.
-- If the 2 collide, the pray is killed and the predator try to find a new pray again.
-- If durring chase, the predator found a closer pray, it will lock on to the new target instead.
-- If there are no targets then random walk.
-- The speed of the predator will be faster than pray.
+- Start out with random walk.
+- If it find a pray within range, it will lock on to the target.
+- Once locked on, the it will move specifically towards that direction. (chasing the pray)
+- If during chase, it find another pray that is closer, it will lock on to that target instead.
+- The chase is considered successful if it managed to collide with the pray.
+- On collision, it will consume and kill the pray.
+- The energy system is designed as a hunger bar.
+- The bar starts at 100 and reduces every frame depend on how much enery it consumes.
+- Once the bar hit 0, it will enter sudden death mode.
+- In this mode, a timer will start, if it managed to find and eat a pray, it will go back to normal.
+- If the timer run out, a RNG will run every tick, if successful, it will die.
+- Within the current impl, each tick will consume 1 energy and eating a pray restore to full.
+- As of now, there is no way for it to reproduce.
+- By design, it will be faster than pray though the number can be modified
 
 ### Pray:
-- Always walk randomly.
+- The pray has 3 states: RUNAWAY > STILL > SEARCHING
+- Start out with random walk. (SEARCHING)
+- If it find a patch of grass, it will attempt to move towards the center, entering STILL state.
+- The number of steps is randomly determined within a range.
+- Once the steps are fullfiled, it will stop and eat the grass.
+- In both states (SEARCHING and STILL), if it detect that there is a predator in range, it will go into RUNAWAY state.
+- In this state, it will take the position of the predator and run in the exact opposite direction, maximizing survival chance.
+- If it detect that there are no predator in range, it will go back to 1 of the other 2 states, which ever takes priority and whether or not the conditions are met.
+- If the agent is in the still state, it will continue to stay in this state untill there is no grass left to eat.
+- If there are no grass left, it will take the center position of the patch of grass and move in the exact opposite direction.
+- If the agent is not in RUNAWAY state, there will be an internal timer counting down.
+- Once the timer reach 0, it will check the RNG and its own hunger bar.
+- If the condition is met, it will reproduce another pray.
+- As of now, pray cannot die of natural causes, it can only die by being eaten.
 
-### Hunger (Enegry system):
-- The pred has a hunger bar now, staring at 100 and decrease 1 per tick.
-- Eating a pray refill the bar to full.
-
-### Spontaneous death:
-- Pred has a small chance to suddenly die.
-- If the pred has no hunger bar left, they enter the dying state.
-- In this state, they have a timer to find more food.
-- If the timer reach 0, the chance will be rolled every tick, potentially killing them.
-- Pray cannot die (assumption).
-
-### Reproduction:
-- Pray has a small chance to commit cell division (1 split into 2).
-- Every pray will have a timer to the next reproduction attempt.
-- Once the timer reach 0, they roll a chance to birth a new pray.
-- The original agent will change direction by 90 degrees if gave birth (only here for testing, will change later).
-- In both cases the timer will be reset.
-- Pred cannot reproduce (assumption).
+### Grass:
+- Represented as a circular patch of grass.
+- It start out with a certain capacity.
+- Every tick, it will count the number of pray on top of it and calculate the new capacity.
+- This calculation will also take natural regen into account.
+- Once the capacity fall to 0, it will enter the Damaged state.
+- In this state, an internal timer will start ticking.
+- Until the timer reach 0, this patch of grass will not generate.
+- After the timer is done, it can then regen the capacity as usual.
+- The color of the grass is dynamically changed to match the current cappacity.
 
 ## Constants:
 - Colision distance: 8px - each sprite is a circle with a diameter of 8px -> collision if distance between 2 agents is less than 8px.
