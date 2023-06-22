@@ -181,6 +181,7 @@ class Pray(Agent):
 
         elif self.state == PrayStates.STILL:
             if self.still_walk_timer == 0:
+                self.hunger = min(self.hunger + 2, 100)
                 return
             self.still_walk_timer -= 1
         else:
