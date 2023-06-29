@@ -1,5 +1,7 @@
 import os
 
+from vi import HeadlessSimulation
+
 from lib import Grass, PPConfig, PPSim, Pray, Pred
 
 config = PPConfig()
@@ -8,6 +10,7 @@ assert (
     len(config.grass_location) == config.grass_count
 ), "Number of grass location not matched with the number location passed. Check GRASS_COUNT or grass_location for error"
 
+test = HeadlessSimulation(config)
 test = PPSim(config)
 
 df = (

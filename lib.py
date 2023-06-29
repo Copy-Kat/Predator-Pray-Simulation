@@ -25,7 +25,8 @@ WINDOW: Window = Window(width=WIDTH, height=HEIGHT)
 FONT_SIZE: int = 20
 FONT = pg.font.SysFont("Arial", FONT_SIZE)
 
-HUNGER_CHANGE = 1 if ENERGY else 0
+HUNGER_CHANGE = 0.01 if ENERGY else 0
+GRASS_COMSUMPTON = 0.01 if ENERGY else 0
 
 
 @dataclass
@@ -33,7 +34,7 @@ HUNGER_CHANGE = 1 if ENERGY else 0
 class QOLConfig(Config):
     visualise_chunks: bool = True
     print_fps: bool = True
-    duration: int = 0
+    duration: int = 10000
 
 
 @dataclass
@@ -43,23 +44,31 @@ class PPConfig(QOLConfig):
     change_dir_chance: float = 0.25  # can change if needed
     radius: int = 100  # maybe improvement here?
 
-    pray_count: int = 100
-    pred_count: int = 10
+    pray_count: int = 200
+    pred_count: int = 20
 
     grass_count: int = 3
     grass_location: list[pg.Vector2] = field(
         default_factory=lambda: [Vector2(100, 100), Vector2(650, 650), Vector2(100, 650)]
     )
-    grass_max_cap: int = 1500
-    grass_natural_regen_rate: int = 10
+    grass_max_cap: float = 15
+    grass_natural_regen_rate: float = 0.1
     grass_damaged_timer: int = 100
 
-    pray_base_chance_reproduce: float = 0.25  # need polish
+    pray_base_chance_reproduce: float = 0.1  # need polish
     pray_reproduce_pulse_timer: int = 100  # need polish
-    pray_grass_consumption: int = 1
+    pray_grass_consumption: float = GRASS_COMSUMPTON
+    pray_base_chance_dying: float = 0.00001
+    pray_detection_range: int = 50
+    pray_reproduction_hunger_threshold: int = 5
 
-    pred_base_chance_dying: float = 0.001  # need polish
-    pred_death_pulse_timer: int = 200  # need polish
+    pred_base_chance_dying: float = 0.00001  # need polish  # need polish
+    pred_reproduce_pulse_timer: int = 50
+    pred_stalk_threshold: int = 65
+    pred_detection_range: int = 60
+    pred_reproduction_hunger_threshold: float = 8
+    pred_base_chance_reproduce: float = 0.1
+    pred_hunger_gain_when_kill_pray: float = 0.1
 
 
 class Grass(Agent):
@@ -67,8 +76,8 @@ class Grass(Agent):
     id: int
     color: int = 235
     counter: int = 0
-    current_cap: int
-    max_cap: int
+    current_cap: float
+    max_cap: float
     damaged: bool = False
 
     def on_spawn(self):
@@ -118,17 +127,35 @@ class PrayStates(Enum):
 class Pray(Agent):
     config: PPConfig
     reproduce_timer: int = 100  # time between each reproduce attempt
-    hunger: float = 100
+    hunger: float = 10
     state: PrayStates = PrayStates.SEARCHING
     still_walk_timer: int
     pred_pos: Vector2
 
     def update(self):
+        p = random.random()
+
+        sample = (
+            self.config.pray_base_chance_dying
+            if self.hunger > 0
+            else self.config.pray_base_chance_dying + 0.05
+        )
+
+        if sample > p:
+            self.kill()
+
+        self.reproduce_timer -= 1
+        self.hunger = max(min(self.hunger - HUNGER_CHANGE, 10), 0)
+
         self.save_data("kind", "Pray")  # save data for later
 
         in_range = list(self.in_proximity_accuracy())
 
-        pred_in_range = [pred for pred in in_range if isinstance(pred[0], Pred) and pred[1] < 70]
+        pred_in_range = [
+            pred
+            for pred in in_range
+            if isinstance(pred[0], Pred) and pred[1] < self.config.pray_detection_range
+        ]
 
         if pred_in_range:
             self.state = PrayStates.RUNAWAY
@@ -153,7 +180,7 @@ class Pray(Agent):
                     self.move.rotate_ip(180)
 
         if self.reproduce_timer == 0:
-            if self.hunger > 50:
+            if self.hunger > self.config.pray_reproduction_hunger_threshold:
                 p = random.random()
 
                 # reproduce
@@ -167,9 +194,6 @@ class Pray(Agent):
             self.reproduce_timer = self.config.pray_reproduce_pulse_timer
             return
 
-        self.reproduce_timer -= 1
-        self.hunger -= HUNGER_CHANGE
-
     def change_position(self):  # basic random move
         changed = self.there_is_no_escape()
 
@@ -181,7 +205,7 @@ class Pray(Agent):
 
         elif self.state == PrayStates.STILL:
             if self.still_walk_timer == 0:
-                self.hunger = min(self.hunger + 2, 100)
+                self.hunger = max(min(self.hunger + 0.02, 100), 0)
                 return
             self.still_walk_timer -= 1
         else:
@@ -195,55 +219,91 @@ class Pray(Agent):
         self.pos += self.move.normalize()
 
 
+class PredStates(Enum):
+    HUNTING = auto()
+    CHASING = auto()
+    STALKING = auto()
+
+
 # Pred class
 class Pred(Agent):
     config: PPConfig
     target: Pray
     death_timer: int
-    hunger: int = 100
-    dying: bool = False
+    hunger: float = 10
+    reproduce_timer: int = 50
+    state: PredStates = PredStates.STALKING
+    target: Pray
 
     def update(self):
+        p = random.random()
+
+        sample = (
+            self.config.pred_base_chance_dying
+            if self.hunger > 0
+            else self.config.pred_base_chance_dying + 0.05
+        )
+
+        if sample > p:
+            self.kill()
+
+        self.reproduce_timer -= 1
+        self.hunger = max(
+            min(
+                (
+                    self.hunger
+                    - (HUNGER_CHANGE / 2 if self.state == PredStates.STALKING else HUNGER_CHANGE)
+                ),
+                10,
+            ),
+            0,
+        )
+
         self.save_data("kind", "Pred")  # save data
 
-        # if no more hunger then enter dying state
-        if self.hunger == 0 and not self.dying:
-            self.death_timer = self.config.pred_death_pulse_timer
-            self.dying = True
+        targets = list(self.in_proximity_accuracy().filter_kind(Pray))
 
-        # count down the timer till death door
-        if self.dying:
-            if self.death_timer == 0:
+        targets = [pray for pray in targets if pray[1] < self.config.pred_detection_range]
+
+        if targets:
+            targets = sorted(targets, key=lambda x: x[1])  # sort targets
+
+            self.target = targets[0][0]
+            if self.state != PredStates.CHASING:
+                self.state = PredStates.CHASING
+        else:
+            if self.hunger < self.config.pred_stalk_threshold:
+                self.state = PredStates.HUNTING
+            else:
+                self.state = PredStates.STALKING
+
+        if self.reproduce_timer == 0:
+            if self.hunger > self.config.pred_reproduction_hunger_threshold:
                 p = random.random()
 
-                if p < self.config.pred_base_chance_dying:
-                    self.kill()
-                return
+                # reproduce
+                if self.config.pred_base_chance_reproduce > p:
+                    prng = self.shared.prng_move
+                    self.reproduce()
 
-            self.death_timer -= 1
+                    self.move.rotate_ip(prng.uniform(-10, 10))
 
-        self.hunger -= HUNGER_CHANGE
+            # reset timer regardless
+            self.reproduce_timer = self.config.pred_reproduce_pulse_timer
+            return
 
     def change_position(self):
         self.there_is_no_escape()
 
-        # aquire target
-        targets = list(self.in_proximity_accuracy().filter_kind(Pray))
-
-        if targets:  # if target found
-            targets = sorted(targets, key=lambda x: x[1])  # sort targets
-
-            self.target = targets[0][0]  # get closest target
-
+        if self.state == PredStates.CHASING:  # if target found
             if (self.target.pos - self.pos).length() < COLLIDE_DISTANCE:
                 self.target.kill()  # kill if collided
-                self.hunger = 100
-                if self.dying:
-                    self.dying = False
-                self.pos += self.move
+                self.hunger = max(self.hunger + self.config.pred_hunger_gain_when_kill_pray, 10)
+                self.pos += self.move.normalize() * 1.2
+                self.state = PredStates.HUNTING
                 return
 
-            self.move = self.target.pos - self.pos
+            self.move = (self.target.pos - self.pos).normalize() * 1.5
 
         else:  # random walk
             prng = self.shared.prng_move
@@ -253,7 +313,13 @@ class Pred(Agent):
             if self.config.change_dir_chance > should_change_dir:
                 self.move.rotate(prng.uniform(-10, 10))
 
-        self.pos += self.move.normalize() * 1.5   # make pred faster than prey
+            self.move = (
+                self.move.normalize() * 1.2
+                if self.state == PredStates.HUNTING
+                else self.move.normalize()
+            )
+
+        self.pos += self.move  # make pred faster than prey
 
 
 class PPSim(Simulation):
